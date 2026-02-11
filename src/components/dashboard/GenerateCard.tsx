@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateBodySchema, type TargetLength } from '@/lib/zod-schemas';
+import { generateBodySchema } from '@/lib/zod-schemas';
 import type { GenerationResult } from '@/app/dashboard/page';
 import ProgressBar from './ProgressBar';
 import { useOptimisticProgress } from '@/hooks/useOptimisticProgress';
@@ -23,6 +23,11 @@ export default function GenerateCard({
   const [customError, setCustomError] = useState<string | null>(null);
   const [contentOutline, setContentOutline] = useState('');
   const [keyPoints, setKeyPoints] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [constraintConditions, setConstraintConditions] = useState('');
+  const [authorPersona, setAuthorPersona] = useState('');
+  const [concreteCases, setConcreteCases] = useState('');
+  const [referenceSources, setReferenceSources] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -52,6 +57,10 @@ export default function GenerateCard({
       target_length: finalLength,
       content_outline: contentOutline.trim(),
       key_points: keyPoints.trim(),
+      constraint_conditions: constraintConditions.trim() || undefined,
+      author_persona: authorPersona.trim() || undefined,
+      concrete_cases: concreteCases.trim() || undefined,
+      reference_sources: referenceSources.trim() || undefined,
     });
     if (!parsed.success) {
       setErr(parsed.error.flatten().formErrors[0] || '请填写提纲与核心观点');
@@ -179,6 +188,75 @@ export default function GenerateCard({
             rows={3}
             className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
           />
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((s) => !s)}
+            className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+          >
+            {showAdvanced ? '收起进阶设置' : '展开进阶设置（可选）'}
+          </button>
+          {showAdvanced && (
+            <div className="mt-3 rounded-apple border border-neutral-200 bg-neutral-50/60 p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">约束性条件（可选）</label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  反向提示词：填写不希望文章提到的内容，生成时会尽量避免。
+                </p>
+                <textarea
+                  value={constraintConditions}
+                  onChange={(e) => setConstraintConditions(e.target.value)}
+                  placeholder="例如：不要提及竞品名称、不要写鸡汤式表达、避免夸张标题党"
+                  rows={2}
+                  className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">作者画像（可选）</label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  设定作者身份与视角，文章会按该角色的表达方式与立场撰写。
+                </p>
+                <textarea
+                  value={authorPersona}
+                  onChange={(e) => setAuthorPersona(e.target.value)}
+                  placeholder="例如：10年资深后端工程师，专注Vibe Coding与AI工程化实践"
+                  rows={2}
+                  className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">具体案例（可选）</label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  填写你希望文章提到的经历、项目过程、故事场景或关键细节。
+                </p>
+                <textarea
+                  value={concreteCases}
+                  onChange={(e) => setConcreteCases(e.target.value)}
+                  placeholder="例如：2025年重构支付模块时，通过灰度发布把故障率从3%降到0.2%"
+                  rows={3}
+                  className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">参考来源（可选）</label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  填写希望参考的文章链接（`http://` 或 `https://`），可用逗号或换行分隔。
+                </p>
+                <textarea
+                  value={referenceSources}
+                  onChange={(e) => setReferenceSources(e.target.value)}
+                  placeholder="http://example.com/a, https://example.com/b"
+                  rows={3}
+                  className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

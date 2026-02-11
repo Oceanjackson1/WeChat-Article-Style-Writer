@@ -11,6 +11,10 @@ export const generateBodySchema = z.object({
   target_length: targetLengthSchema,
   content_outline: z.string().min(1, '请填写文章提纲').max(10000),
   key_points: z.string().min(1, '请填写核心观点').max(5000),
+  constraint_conditions: z.string().trim().max(3000, '约束性条件不能超过3000字').optional(),
+  author_persona: z.string().trim().max(2000, '作者画像不能超过2000字').optional(),
+  concrete_cases: z.string().trim().max(6000, '具体案例不能超过6000字').optional(),
+  reference_sources: z.string().trim().max(4000, '参考来源不能超过4000字').optional(),
 });
 export type GenerateBody = z.infer<typeof generateBodySchema>;
 
