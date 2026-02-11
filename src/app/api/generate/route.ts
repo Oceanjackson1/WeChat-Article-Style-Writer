@@ -11,6 +11,7 @@ const MAX_REFERENCE_URLS = 5;
 const MAX_REFERENCE_CHARS_PER_URL = 3000;
 const MAX_REFERENCE_TOTAL_CHARS = 12000;
 const REFERENCE_FETCH_TIMEOUT_MS = 8000;
+const MAX_STYLE_JSON_CHARS = 12000;
 
 function inTolerance(target: number, actual: number): boolean {
   const low = target * (1 - TOLERANCE);
@@ -213,6 +214,10 @@ export async function POST(request: NextRequest) {
   }
 
   const styleSummary = profile.profile_summary || JSON.stringify(profile.profile_json || {});
+  const styleJsonText = JSON.stringify(profile.profile_json || {}, null, 2).slice(
+    0,
+    MAX_STYLE_JSON_CHARS
+  );
 
   const advancedSections: string[] = [];
   if (constraint_conditions) {
@@ -244,6 +249,7 @@ export async function POST(request: NextRequest) {
 要求：
 - 标题简洁有力，符合风格摘要中的语气与风格。
 - 正文严格遵循风格摘要中的：语气、结构、小标题密度、常用表达、段落节奏、开头与结尾模式。
+- 若画像中存在“特殊句式/口头禅/高频起句与收句/标点习惯”，请在不生硬堆砌的前提下复用其写法特征。
 - 正文字数（中英文均按字符计）必须尽量接近 target_length，允许 ±10% 偏差。
 - 若用户提供“约束性条件”，必须严格避免出现这些内容。
 - 若用户提供“作者画像”，必须以该身份与视角组织表达。
@@ -256,6 +262,8 @@ export async function POST(request: NextRequest) {
 核心观点：\n${key_points}
 
 写作风格摘要：\n${styleSummary}
+
+写作风格画像JSON（需共同遵循）：\n${styleJsonText}
 
 进阶可选设置（若有内容必须执行）：\n${advancedPrompt}
 
