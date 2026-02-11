@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { generateBodySchema, type TargetLength } from '@/lib/zod-schemas';
 import type { GenerationResult } from '@/app/dashboard/page';
+import ProgressBar from './ProgressBar';
+import { useOptimisticProgress } from '@/hooks/useOptimisticProgress';
 
 const LENGTH_OPTIONS: number[] = [1500, 2500, 3500];
 
@@ -23,6 +25,14 @@ export default function GenerateCard({
   const [keyPoints, setKeyPoints] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const generateProgress = useOptimisticProgress({
+    stages: [
+      { label: '读取风格画像…', maxProgress: 25, duration: 8000 },
+      { label: '构思文章框架…', maxProgress: 35, duration: 9000 },
+      { label: '撰写正文…', maxProgress: 40, duration: 8000 },
+    ],
+  });
 
   async function handleGenerate() {
     // 确定最终字数
@@ -50,6 +60,8 @@ export default function GenerateCard({
     setErr(null);
     setCustomError(null);
     setLoading(true);
+    generateProgress.start();
+
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -58,6 +70,7 @@ export default function GenerateCard({
       });
       const json = await res.json();
       if (json.ok && json.data) {
+        generateProgress.complete();
         onSuccess({
           id: json.data.id,
           title: json.data.title,
@@ -68,9 +81,11 @@ export default function GenerateCard({
           created_at: json.data.created_at,
         });
       } else {
+        generateProgress.reset();
         setErr(json.error?.message || '生成失败');
       }
     } catch {
+      generateProgress.reset();
       setErr('网络错误');
     } finally {
       setLoading(false);
@@ -179,6 +194,13 @@ export default function GenerateCard({
       >
         {loading ? '生成中…' : '生成'}
       </button>
+
+      {generateProgress.isActive && (
+        <div className="mt-4">
+          <ProgressBar progress={generateProgress.progress} label={generateProgress.label} />
+        </div>
+      )}
+
       {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
     </section>
   );

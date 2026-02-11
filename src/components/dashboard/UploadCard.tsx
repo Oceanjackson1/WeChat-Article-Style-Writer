@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import ConfirmModal from './ConfirmModal';
+import ProgressBar from './ProgressBar';
+import { useOptimisticProgress } from '@/hooks/useOptimisticProgress';
 
 const ALLOWED_MIMES = [
   'application/pdf',
@@ -47,6 +49,14 @@ export default function UploadCard({
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const uploadProgress = useOptimisticProgress({
+    stages: [
+      { label: '上传文件中…', maxProgress: 30, duration: 4000 },
+      { label: '解析内容…', maxProgress: 40, duration: 4000 },
+      { label: '分析写作风格…', maxProgress: 30, duration: 4000 },
+    ],
+  });
+
   const doUpload = useCallback(
     async (files: FileList | File[]) => {
       const list = Array.from(files);
@@ -58,6 +68,8 @@ export default function UploadCard({
 
       setUploading(true);
       setMessage(null);
+      uploadProgress.start();
+
       const form = new FormData();
       valid.forEach((f) => form.append('files', f));
 
@@ -65,21 +77,24 @@ export default function UploadCard({
         const res = await fetch('/api/upload', { method: 'POST', body: form });
         const json = await res.json();
         if (json.ok) {
+          uploadProgress.complete();
           setMessage({
             type: 'ok',
             text: json.data?.message || '上传成功，新内容已与历史合并，将重新生成风格画像',
           });
           onSuccess();
         } else {
+          uploadProgress.reset();
           setMessage({ type: 'err', text: json.error?.message || '上传失败' });
         }
       } catch (e) {
+        uploadProgress.reset();
         setMessage({ type: 'err', text: '网络错误' });
       } finally {
         setUploading(false);
       }
     },
-    [onSuccess]
+    [onSuccess, uploadProgress]
   );
 
   const onDrop = (e: React.DragEvent) => {
@@ -175,6 +190,12 @@ export default function UploadCard({
               {uploading ? '上传中…' : '拖拽文件到此处，或点击选择文件'}
             </label>
           </div>
+
+          {uploadProgress.isActive && (
+            <div className="mt-4">
+              <ProgressBar progress={uploadProgress.progress} label={uploadProgress.label} />
+            </div>
+          )}
         </>
       )}
 
