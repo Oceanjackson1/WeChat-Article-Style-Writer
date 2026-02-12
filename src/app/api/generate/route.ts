@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
     author_persona,
     concrete_cases,
     reference_sources,
+    include_subheadings,
   } = parsed.data;
 
   const parsedReferences = parseReferenceSources(reference_sources);
@@ -235,6 +236,9 @@ export async function POST(request: NextRequest) {
   if (referenceData.snippets.length > 0) {
     advancedSections.push(`【参考来源摘录（用于事实参考）】\n${referenceData.snippets.join('\n\n')}`);
   }
+  if (include_subheadings) {
+    advancedSections.push('【在文章中加入小标题】是。请按模块组织内容，每个模块使用简洁明确的小标题。');
+  }
 
   const advancedPrompt =
     advancedSections.length > 0
@@ -254,7 +258,8 @@ export async function POST(request: NextRequest) {
 - 若用户提供“约束性条件”，必须严格避免出现这些内容。
 - 若用户提供“作者画像”，必须以该身份与视角组织表达。
 - 若用户提供“具体案例”，正文必须自然提及并与论点相关联。
-- 若用户提供“参考来源摘录”，优先基于摘录内容组织事实，不要凭空编造。`;
+- 若用户提供“参考来源摘录”，优先基于摘录内容组织事实，不要凭空编造。
+- 若用户开启“在文章中加入小标题”，正文应按模块使用小标题组织，每个小标题单独一行且与段落内容对应。`;
 
   const userPrompt = `目标字数（字符数）：${target_length}
 文章提纲：\n${content_outline}
@@ -309,6 +314,8 @@ export async function POST(request: NextRequest) {
     adjustMustKeep.push('- 保持与参考来源一致，不引入明显冲突的事实陈述');
   if (referenceData.snippets.length > 0)
     adjustMustKeep.push('- 已引用的参考信息请继续保留核心事实');
+  if (include_subheadings)
+    adjustMustKeep.push('- 保持按模块的小标题结构，不要移除小标题');
 
   const adjustRules =
     adjustMustKeep.length > 0

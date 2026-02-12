@@ -28,6 +28,7 @@ export default function GenerateCard({
   const [authorPersona, setAuthorPersona] = useState('');
   const [concreteCases, setConcreteCases] = useState('');
   const [referenceSources, setReferenceSources] = useState('');
+  const [includeSubheadings, setIncludeSubheadings] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -61,6 +62,7 @@ export default function GenerateCard({
       author_persona: authorPersona.trim() || undefined,
       concrete_cases: concreteCases.trim() || undefined,
       reference_sources: referenceSources.trim() || undefined,
+      include_subheadings: includeSubheadings || undefined,
     });
     if (!parsed.success) {
       setErr(parsed.error.flatten().formErrors[0] || '请填写提纲与核心观点');
@@ -254,6 +256,27 @@ export default function GenerateCard({
                   rows={3}
                   className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  在文章中加入小标题（可选）
+                </label>
+                <p className="text-xs text-neutral-500 mb-2">
+                  开启后，正文会按不同模块自动加上小标题，结构更清晰、便于阅读。
+                </p>
+                <button
+                  type="button"
+                  aria-pressed={includeSubheadings}
+                  onClick={() => setIncludeSubheadings((v) => !v)}
+                  className={`px-4 py-2 rounded-apple text-sm font-medium border transition-colors ${
+                    includeSubheadings
+                      ? 'bg-neutral-900 text-white border-neutral-900'
+                      : 'bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400'
+                  }`}
+                >
+                  {includeSubheadings ? '已开启小标题' : '点击开启小标题'}
+                </button>
               </div>
             </div>
           )}

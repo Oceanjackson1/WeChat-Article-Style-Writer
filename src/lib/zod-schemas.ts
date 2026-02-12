@@ -15,6 +15,7 @@ export const generateBodySchema = z.object({
   author_persona: z.string().trim().max(2000, '作者画像不能超过2000字').optional(),
   concrete_cases: z.string().trim().max(6000, '具体案例不能超过6000字').optional(),
   reference_sources: z.string().trim().max(4000, '参考来源不能超过4000字').optional(),
+  include_subheadings: z.boolean().optional(),
 });
 export type GenerateBody = z.infer<typeof generateBodySchema>;
 
