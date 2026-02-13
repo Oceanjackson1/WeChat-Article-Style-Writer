@@ -15,10 +15,12 @@ export default function StyleCard({
   profile: ProfileState;
   loading: boolean;
 }) {
-  const [showJson, setShowJson] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(false);
   const updatedAtText = profile?.updated_at
     ? new Date(profile.updated_at).toLocaleString('zh-CN')
     : null;
+  const summary = profile?.profile_summary ?? '';
+  const isLongSummary = summary.length > 260;
 
   return (
     <section className="rounded-apple-lg border border-[hsl(var(--border))] bg-white p-6 shadow-apple">
@@ -34,21 +36,24 @@ export default function StyleCard({
         <p className="text-sm text-neutral-500">加载中…</p>
       ) : profile?.profile_summary ? (
         <>
-          <div className="rounded-apple border border-neutral-200 bg-neutral-50/50 p-4 text-sm text-neutral-700 whitespace-pre-wrap mb-4">
-            {profile.profile_summary}
+          <div className="mb-4">
+            <div
+              className={`rounded-apple border border-neutral-200 bg-neutral-50/50 p-4 text-sm text-neutral-700 whitespace-pre-wrap ${
+                isLongSummary && !expandedSummary ? 'max-h-56 overflow-hidden' : ''
+              }`}
+            >
+              {profile.profile_summary}
+            </div>
+            {isLongSummary && (
+              <button
+                type="button"
+                onClick={() => setExpandedSummary((prev) => !prev)}
+                className="mt-2 text-sm text-neutral-500 hover:text-neutral-900"
+              >
+                {expandedSummary ? '收起' : '展开'}
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowJson((s) => !s)}
-            className="text-sm text-neutral-500 hover:text-neutral-900 mb-2"
-          >
-            {showJson ? '收起 JSON' : '展开 JSON'}
-          </button>
-          {showJson && (
-            <pre className="rounded-apple border border-neutral-200 bg-neutral-50 p-4 text-xs overflow-auto max-h-64 mb-4">
-              {JSON.stringify(profile.profile_json, null, 2)}
-            </pre>
-          )}
         </>
       ) : (
         <p className="text-sm text-neutral-500 mb-4">
