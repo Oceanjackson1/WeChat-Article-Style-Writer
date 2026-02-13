@@ -31,6 +31,12 @@ export type ArticleItem = {
   preview: string;
 };
 
+type UploadProfile = {
+  profile_json: Record<string, unknown> | null;
+  profile_summary: string | null;
+  updated_at: string | null;
+} | null;
+
 type Mode = 'add' | 'delete';
 
 export default function UploadCard({
@@ -39,7 +45,7 @@ export default function UploadCard({
   onDeleteSuccess,
 }: {
   articles?: ArticleItem[];
-  onSuccess: () => void;
+  onSuccess: (profile?: UploadProfile) => void;
   onDeleteSuccess?: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('add');
@@ -78,11 +84,15 @@ export default function UploadCard({
         const json = await res.json();
         if (json.ok) {
           uploadProgress.complete();
+          const profileError = json.data?.style_profile_error as string | null | undefined;
+          const successCount = Number(json.data?.success_count ?? 0);
           setMessage({
-            type: 'ok',
-            text: json.data?.message || '上传成功，新内容已与历史合并，将重新生成风格画像',
+            type: successCount > 0 && !profileError ? 'ok' : 'err',
+            text: successCount > 0 && profileError
+              ? `${json.data?.message || '上传成功'}（${profileError}）`
+              : json.data?.message || '上传成功，风格画像已自动更新',
           });
-          onSuccess();
+          onSuccess((json.data?.style_profile as UploadProfile | undefined) ?? null);
         } else {
           uploadProgress.reset();
           setMessage({ type: 'err', text: json.error?.message || '上传失败' });

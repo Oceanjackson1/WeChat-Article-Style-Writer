@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { apiError, apiSuccess, apiUnauthorized } from '@/lib/api-response';
 import { parseBuffer, normalizeMime } from '@/lib/parse';
+import { buildStyleProfile } from '@/lib/build-style-profile';
 import { v4 as uuidv4 } from 'uuid';
 import { NextRequest } from 'next/server';
 
@@ -55,7 +56,6 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const ext = filename.split('.').pop()?.toLowerCase();
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `${user.id}/${uuidv4()}-${safeName}`;
 
@@ -105,10 +105,40 @@ export async function POST(request: NextRequest) {
   }
 
   const successCount = results.filter((r) => !r.error).length;
+  const failureCount = results.length - successCount;
+  let profileData: { profile_json: Record<string, unknown>; profile_summary: string } | null = null;
+  let profileUpdatedAt: string | null = null;
+  let profileError: string | null = null;
+
+  if (successCount > 0) {
+    try {
+      profileData = await buildStyleProfile(supabase, user.id);
+      profileUpdatedAt = new Date().toISOString();
+    } catch (e) {
+      profileError = e instanceof Error ? e.message : '风格画像更新失败';
+      console.error('[Upload] rebuild style profile error:', e);
+    }
+  }
+
+  const message =
+    successCount === 0
+      ? '没有文件上传成功'
+      : profileData
+        ? '上传成功，风格画像已自动更新'
+        : '上传成功，但风格画像自动更新失败，请稍后重试';
+
   return apiSuccess({
-    message: successCount
-      ? '上传成功，现在可以填写文章提纲与核心观点并选择字数生成'
-      : '没有文件上传成功',
+    message,
+    success_count: successCount,
+    failure_count: failureCount,
     results,
+    style_profile: profileData
+      ? {
+          profile_json: profileData.profile_json,
+          profile_summary: profileData.profile_summary,
+          updated_at: profileUpdatedAt,
+        }
+      : null,
+    style_profile_error: profileError,
   });
 }

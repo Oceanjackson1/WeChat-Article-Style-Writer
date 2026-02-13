@@ -17,6 +17,12 @@ export type GenerationResult = {
   created_at: string;
 };
 
+type StyleProfileData = {
+  profile_json: Record<string, unknown> | null;
+  profile_summary: string | null;
+  updated_at: string | null;
+};
+
 export default function DashboardPage() {
   const [articles, setArticles] = useState<
     Array<{
@@ -28,14 +34,9 @@ export default function DashboardPage() {
       preview: string;
     }>
   >([]);
-  const [styleProfile, setStyleProfile] = useState<{
-    profile_json: Record<string, unknown> | null;
-    profile_summary: string | null;
-    updated_at: string | null;
-  } | null>(null);
+  const [styleProfile, setStyleProfile] = useState<StyleProfileData | null>(null);
   const [generations, setGenerations] = useState<GenerationResult[]>([]);
   const [lastResult, setLastResult] = useState<GenerationResult | null>(null);
-  const [loadingArticles, setLoadingArticles] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingGenerations, setLoadingGenerations] = useState(true);
 
@@ -43,7 +44,6 @@ export default function DashboardPage() {
     const res = await fetch('/api/articles');
     const json = await res.json();
     if (json.ok && json.data?.articles) setArticles(json.data.articles);
-    setLoadingArticles(false);
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -70,23 +70,25 @@ export default function DashboardPage() {
     fetchGenerations();
   }, [fetchGenerations]);
 
-  const onUploadSuccess = useCallback(async () => {
+  const onUploadSuccess = useCallback(
+    async (profileFromUpload?: StyleProfileData | null) => {
+      await fetchArticles();
+
+      if (profileFromUpload?.profile_summary) {
+        setStyleProfile(profileFromUpload);
+        setLoadingProfile(false);
+        return;
+      }
+
+      await fetchProfile();
+    },
+    [fetchArticles, fetchProfile]
+  );
+
+  const onDeleteSuccess = useCallback(async () => {
     await fetchArticles();
     setStyleProfile(null);
-    const res = await fetch('/api/style-profile/rebuild', { method: 'POST' });
-    const json = await res.json();
-    if (json.ok && json.data) {
-      setStyleProfile({
-        profile_json: json.data.profile_json ?? null,
-        profile_summary: json.data.profile_summary ?? null,
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }, [fetchArticles]);
-
-  const onDeleteSuccess = useCallback(() => {
-    fetchArticles();
-    setStyleProfile(null);
+    setLoadingProfile(false);
   }, [fetchArticles]);
 
   const articleItems = articles.map((a) => ({
@@ -97,14 +99,6 @@ export default function DashboardPage() {
     created_at: a.created_at,
     preview: a.preview,
   }));
-
-  const onRebuildSuccess = (data: { profile_summary?: string; profile_json?: Record<string, unknown> }) => {
-    setStyleProfile((prev) => ({
-      profile_json: data.profile_json ?? prev?.profile_json ?? null,
-      profile_summary: data.profile_summary ?? prev?.profile_summary ?? null,
-      updated_at: new Date().toISOString(),
-    }));
-  };
 
   const onGenerateSuccess = (result: GenerationResult) => {
     setLastResult(result);
@@ -132,8 +126,6 @@ export default function DashboardPage() {
         <StyleCard
           profile={styleProfile}
           loading={loadingProfile}
-          onRebuild={fetchProfile}
-          onRebuildSuccess={onRebuildSuccess}
         />
         <GenerateCard
           hasProfile={!!styleProfile?.profile_summary}
