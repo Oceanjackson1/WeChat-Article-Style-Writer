@@ -59,14 +59,37 @@ function looksLikeHeaderIssue(message: string): boolean {
   return /header|referer|x-title|bytestring|invalid character|invalid header/i.test(message);
 }
 
+function resolveOpenRouterApiKey(): { apiKey: string | null; source: string | null } {
+  const candidates: Array<{ name: string; value: string | undefined }> = [
+    { name: 'OPENROUTER_API_KEY', value: process.env.OPENROUTER_API_KEY },
+    { name: 'OPEN_ROUTER_API', value: process.env.OPEN_ROUTER_API },
+    { name: 'Open_Router_API', value: process.env['Open_Router_API'] },
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = String(candidate.value || '').trim();
+    if (normalized) {
+      return { apiKey: normalized, source: candidate.name };
+    }
+  }
+
+  return { apiKey: null, source: null };
+}
+
 export async function openrouterChat(options: OpenRouterChatOptions): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const { apiKey, source } = resolveOpenRouterApiKey();
   const baseUrl = process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL;
   const referer = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const title = toSafeHeaderValue(process.env.OPENROUTER_APP_NAME, DEFAULT_APP_NAME);
 
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not set');
+    throw new Error(
+      'OPENROUTER_API_KEY is not set (checked: OPENROUTER_API_KEY, OPEN_ROUTER_API, Open_Router_API)'
+    );
+  }
+
+  if (source !== 'OPENROUTER_API_KEY') {
+    console.warn(`[OpenRouter] Using legacy env var "${source}". Please migrate to OPENROUTER_API_KEY.`);
   }
 
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;

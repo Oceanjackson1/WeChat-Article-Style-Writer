@@ -329,7 +329,10 @@ export async function POST(request: NextRequest) {
     const msg = e instanceof Error ? e.message : '模型调用失败';
     console.error('[Generate] model error:', model_key, modelConfig.modelId, msg);
     if (msg.includes('OPENROUTER_API_KEY is not set')) {
-      return apiError('CONFIG_ERROR', 'OpenRouter API Key 未配置，请先在环境变量中设置');
+      return apiError(
+        'CONFIG_ERROR',
+        'OpenRouter API Key 未生效。请确认变量名为 OPENROUTER_API_KEY，并在 Vercel 更新后重新部署。'
+      );
     }
     if (msg.includes('OpenRouter API')) {
       const concise = msg.replace(/^OpenRouter API\s*/i, '').slice(0, 220);
