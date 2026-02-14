@@ -22,6 +22,17 @@ function inTolerance(target: number, actual: number): boolean {
   return actual >= low && actual <= high;
 }
 
+function getValidationErrorMessage(parsedError: {
+  flatten: () => { formErrors: string[]; fieldErrors: Record<string, string[] | undefined> };
+}): string {
+  const flattened = parsedError.flatten();
+  if (flattened.formErrors[0]) return flattened.formErrors[0];
+  for (const errors of Object.values(flattened.fieldErrors)) {
+    if (errors?.[0]) return errors[0];
+  }
+  return '参数错误';
+}
+
 type ParsedReferenceSources = {
   urls: string[];
   invalid: string[];
@@ -171,7 +182,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = generateBodySchema.safeParse(body);
   if (!parsed.success) {
-    const msg = parsed.error.flatten().formErrors[0] || '参数错误';
+    const msg = getValidationErrorMessage(parsed.error);
     return apiError('VALIDATION_ERROR', msg);
   }
 

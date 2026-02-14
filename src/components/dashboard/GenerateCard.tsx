@@ -10,6 +10,17 @@ import { useOptimisticProgress } from '@/hooks/useOptimisticProgress';
 
 const LENGTH_OPTIONS: number[] = [1500, 2500, 3500];
 
+function pickValidationMessage(parsedError: {
+  flatten: () => { formErrors: string[]; fieldErrors: Record<string, string[] | undefined> };
+}): string {
+  const flattened = parsedError.flatten();
+  if (flattened.formErrors[0]) return flattened.formErrors[0];
+  for (const errors of Object.values(flattened.fieldErrors)) {
+    if (errors?.[0]) return errors[0];
+  }
+  return '输入参数有误，请检查后重试';
+}
+
 export default function GenerateCard({
   hasProfile,
   hasArticles,
@@ -153,7 +164,7 @@ export default function GenerateCard({
       include_subheadings: includeSubheadings || undefined,
     });
     if (!parsed.success) {
-      setErr(parsed.error.flatten().formErrors[0] || '请填写提纲与核心观点');
+      setErr(pickValidationMessage(parsed.error));
       return;
     }
 
