@@ -64,9 +64,10 @@
 3. 服务端解析文本并存储（DB + Storage）
 4. 触发风格画像构建（style profile）
 5. 用户输入提纲/核心观点及可选约束
-6. 服务端按所选模型生成标题和正文（DeepSeek 走原生 API，其它模型走 OpenRouter）
-7. 结果写入生成历史并回显在工作台
-8. 用户可复制、回看、删除历史记录
+6. 用户选择模型（DeepSeek 免邀请码；其余模型首次使用需邀请码验证）
+7. 服务端按所选模型生成标题和正文（DeepSeek 走原生 API，其它模型走 OpenRouter）
+8. 结果写入生成历史并回显在工作台
+9. 用户可复制、回看、删除历史记录
 
 ## 2.3 主要功能清单
 - OAuth 登录
@@ -114,7 +115,11 @@
 
 ## 3.4 文章生成（GenerateCard）
 - 前端组件：`src/components/dashboard/GenerateCard.tsx`
+- 弹窗组件：`src/components/dashboard/InviteCodeModal.tsx`
 - 后端接口：`POST /api/generate` -> `src/app/api/generate/route.ts`
+- 模型访问接口：
+  - `GET /api/model-access` -> `src/app/api/model-access/route.ts`
+  - `POST /api/model-access/verify` -> `src/app/api/model-access/verify/route.ts`
 - 输入校验：`src/lib/zod-schemas.ts`
 - 核心能力：
   - 必填：提纲 + 核心观点
@@ -159,6 +164,8 @@
 - `GET /api/style-profile`：获取风格画像
 - `POST /api/style-profile/rebuild`：手动重建风格画像
 - `POST /api/generate`：按提纲与风格生成文章
+- `GET /api/model-access`：获取当前账号邀请码验证状态
+- `POST /api/model-access/verify`：验证邀请码并解锁受限模型
 - `GET /api/generations?limit=10`：获取生成历史
 - `DELETE /api/generations/[id]`：删除单条生成记录
 - `GET /auth/callback`：OAuth 回调
@@ -170,7 +177,8 @@
 ### 5.1 数据表（核心）
 - `user_articles`：上传文件元信息 + 解析文本
 - `user_style_profiles`：风格画像 JSON + 摘要
-- `generations`：生成结果与元信息
+- `user_model_access`：模型访问权限（是否已完成邀请码验证）
+- `generations`：生成结果与元信息（含 `model_key` / `model_id`）
 
 ### 5.2 存储策略
 - Bucket：`user-articles`（Private）
@@ -228,6 +236,7 @@ npm run dev -- -p 3010
 - Supabase Auth 的 Redirect URLs 需覆盖生产域名
 - DeepSeek / OpenRouter Key 仅放服务端环境变量，不暴露到浏览器
 - 首次部署前确认 DB migration 与 Storage policy 已应用
+- 若从旧版本升级，请先执行 `001_model_access_and_generation_models.sql` 以启用邀请码与多模型字段
 
 ---
 
@@ -246,6 +255,8 @@ src/
       upload/route.ts
       articles/route.ts
       articles/delete-all/route.ts
+      model-access/route.ts
+      model-access/verify/route.ts
       style-profile/route.ts
       style-profile/rebuild/route.ts
       generate/route.ts
@@ -258,11 +269,15 @@ src/
       UploadCard.tsx
       StyleCard.tsx
       GenerateCard.tsx
+      InviteCodeModal.tsx
       OutputCard.tsx
       HistoryCard.tsx
   lib/
     build-style-profile.ts
     deepseek.ts
+    openrouter.ts
+    model-config.ts
+    model-access.ts
     parse.ts
     zod-schemas.ts
 ```
