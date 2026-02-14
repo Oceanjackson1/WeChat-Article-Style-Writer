@@ -10,11 +10,7 @@ import { NextRequest } from 'next/server';
 
 const TOLERANCE = 0.1; // ±10%
 const MAX_RETRIES = 2;
-const MAX_REFERENCE_URLS = 5;
-const MAX_REFERENCE_CHARS_PER_URL = 3000;
-const MAX_REFERENCE_TOTAL_CHARS = 12000;
 const REFERENCE_FETCH_TIMEOUT_MS = 8000;
-const MAX_STYLE_JSON_CHARS = 12000;
 
 function inTolerance(target: number, actual: number): boolean {
   const low = target * (1 - TOLERANCE);
@@ -36,11 +32,10 @@ function getValidationErrorMessage(parsedError: {
 type ParsedReferenceSources = {
   urls: string[];
   invalid: string[];
-  truncated: boolean;
 };
 
 function parseReferenceSources(raw: string | undefined): ParsedReferenceSources {
-  if (!raw?.trim()) return { urls: [], invalid: [], truncated: false };
+  if (!raw?.trim()) return { urls: [], invalid: [] };
 
   const candidates = raw
     .split(/[\n,，]/g)
@@ -69,12 +64,7 @@ function parseReferenceSources(raw: string | undefined): ParsedReferenceSources 
     }
   }
 
-  const truncated = urls.length > MAX_REFERENCE_URLS;
-  return {
-    urls: urls.slice(0, MAX_REFERENCE_URLS),
-    invalid,
-    truncated,
-  };
+  return { urls, invalid };
 }
 
 function decodeHtmlEntities(input: string): string {
@@ -121,8 +111,7 @@ async function fetchReferenceSnippet(url: string): Promise<string> {
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
     const rawText = await res.text();
     const normalized = contentType.includes('html') ? htmlToText(rawText) : rawText;
-    const compact = normalized.replace(/\s+/g, ' ').trim();
-    return compact.slice(0, MAX_REFERENCE_CHARS_PER_URL);
+    return normalized.replace(/\s+/g, ' ').trim();
   } finally {
     clearTimeout(timeout);
   }
@@ -134,25 +123,15 @@ async function buildReferenceSnippets(urls: string[]): Promise<{
 }> {
   const snippets: string[] = [];
   const warnings: string[] = [];
-  let totalChars = 0;
 
   for (const url of urls) {
-    if (totalChars >= MAX_REFERENCE_TOTAL_CHARS) {
-      warnings.push(`参考来源内容过长，已截断总参考字数（上限 ${MAX_REFERENCE_TOTAL_CHARS} 字）`);
-      break;
-    }
-
     try {
       const snippet = await fetchReferenceSnippet(url);
       if (!snippet) {
         warnings.push(`未能从 ${url} 提取有效文本`);
         continue;
       }
-
-      const remain = MAX_REFERENCE_TOTAL_CHARS - totalChars;
-      const clipped = snippet.slice(0, remain);
-      totalChars += clipped.length;
-      snippets.push(`来源：${url}\n内容摘要：${clipped}`);
+      snippets.push(`来源：${url}\n内容摘要：${snippet}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '抓取失败';
       warnings.push(`读取 ${url} 失败（${msg}）`);
@@ -247,10 +226,7 @@ export async function POST(request: NextRequest) {
   }
 
   const styleSummary = profile.profile_summary || JSON.stringify(profile.profile_json || {});
-  const styleJsonText = JSON.stringify(profile.profile_json || {}, null, 2).slice(
-    0,
-    MAX_STYLE_JSON_CHARS
-  );
+  const styleJsonText = JSON.stringify(profile.profile_json || {}, null, 2);
 
   const advancedSections: string[] = [];
   if (constraint_conditions) {
@@ -500,6 +476,6 @@ export async function POST(request: NextRequest) {
     created_at: gen?.created_at,
     reference_warnings: referenceData.warnings,
     reference_urls_used: parsedReferences.urls,
-    reference_urls_truncated: parsedReferences.truncated,
+    reference_urls_truncated: false,
   });
 }

@@ -143,8 +143,8 @@ export default function GenerateCard({
     let finalLength: number;
     if (isCustomMode) {
       const parsed = parseInt(customValue, 10);
-      if (isNaN(parsed) || parsed < 1 || parsed > 10000) {
-        setCustomError('请输入10000字以下的目标字数');
+      if (isNaN(parsed) || parsed < 1) {
+        setCustomError('请输入大于 0 的目标字数');
         return;
       }
       finalLength = parsed;
@@ -261,13 +261,12 @@ export default function GenerateCard({
               <input
                 type="number"
                 min="1"
-                max="10000"
                 value={customValue}
                 onChange={(e) => {
                   setCustomValue(e.target.value);
                   setCustomError(null);
                 }}
-                placeholder="输入目标字数（1-10000）"
+                placeholder="输入目标字数（>=1）"
                 className="w-full rounded-apple border border-[hsl(var(--border))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
               />
               {customError && <p className="mt-1 text-sm text-red-600">{customError}</p>}

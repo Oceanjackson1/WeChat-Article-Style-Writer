@@ -6,8 +6,6 @@ export type BuildProfileResult = {
   profile_summary: string;
 };
 
-const MAX_CHARS = 80000; // DeepSeek API 安全限制
-
 export async function buildStyleProfile(
   supabase: SupabaseClient,
   userId: string
@@ -115,9 +113,7 @@ export async function buildStyleProfile(
 请至少覆盖：语气人设、结构模板、小标题策略、段落节奏、语言偏好、特殊句式与口头禅、论证方式、开头策略、结尾策略、仿写规则、质量检查清单。
 4. “特殊句式与表达习惯”必须具体、可执行，不要空泛描述。`;
 
-  // 应用安全限制，避免超出 API 限制
-  const safeContent = combined.slice(0, MAX_CHARS);
-  const userPrompt = `请分析以下公众号文章，提取写作风格并输出 JSON + 摘要：\n\n${safeContent}`;
+  const userPrompt = `请分析以下公众号文章，提取写作风格并输出 JSON + 摘要：\n\n${combined}`;
 
   const raw = await deepseekChat({
     messages: [
@@ -141,10 +137,10 @@ export async function buildStyleProfile(
     try {
       profileJson = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
     } catch {
-      profileSummary = profileSummary || raw.slice(0, 500);
+      profileSummary = profileSummary || raw;
     }
   } else {
-    profileSummary = profileSummary || raw.slice(0, 500);
+    profileSummary = profileSummary || raw;
   }
 
   const { error: upsertError } = await supabase.from('user_style_profiles').upsert(
