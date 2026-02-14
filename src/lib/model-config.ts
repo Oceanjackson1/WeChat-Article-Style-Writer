@@ -7,6 +7,7 @@ export type ModelConfig = {
   label: string;
   provider: 'deepseek' | 'openrouter';
   modelId: string;
+  fallbackModelIds?: string[];
   inviteRequired: boolean;
 };
 
@@ -23,6 +24,7 @@ const modelConfigList: ModelConfig[] = [
     label: 'Grok',
     provider: 'openrouter',
     modelId: 'x-ai/grok-4',
+    fallbackModelIds: ['x-ai/grok-4-fast', 'x-ai/grok-3'],
     inviteRequired: true,
   },
   {
@@ -30,6 +32,7 @@ const modelConfigList: ModelConfig[] = [
     label: 'GPT 5.2',
     provider: 'openrouter',
     modelId: 'openai/gpt-5.2',
+    fallbackModelIds: ['openai/gpt-5.2-chat', 'openai/gpt-5'],
     inviteRequired: true,
   },
   {
@@ -37,6 +40,7 @@ const modelConfigList: ModelConfig[] = [
     label: 'Gemini',
     provider: 'openrouter',
     modelId: 'google/gemini-2.5-pro',
+    fallbackModelIds: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro-preview'],
     inviteRequired: true,
   },
   {
@@ -44,6 +48,7 @@ const modelConfigList: ModelConfig[] = [
     label: 'Opus 4.6',
     provider: 'openrouter',
     modelId: 'anthropic/claude-opus-4.6',
+    fallbackModelIds: ['anthropic/claude-opus-4.1', 'anthropic/claude-opus-4'],
     inviteRequired: true,
   },
 ];

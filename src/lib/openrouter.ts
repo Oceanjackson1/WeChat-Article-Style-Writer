@@ -26,6 +26,19 @@ interface OpenRouterChatResponse {
   }>;
 }
 
+function extractApiErrorMessage(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as {
+      error?: { message?: string; code?: string };
+      message?: string;
+    };
+    const msg = parsed?.error?.message || parsed?.message;
+    return String(msg || raw || '').trim();
+  } catch {
+    return String(raw || '').trim();
+  }
+}
+
 function normalizeContent(content: OpenRouterMessageContent | undefined): string {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
@@ -42,6 +55,10 @@ function toSafeHeaderValue(input: string | undefined, fallback: string): string 
   return normalized || fallback;
 }
 
+function looksLikeHeaderIssue(message: string): boolean {
+  return /header|referer|x-title|bytestring|invalid character|invalid header/i.test(message);
+}
+
 export async function openrouterChat(options: OpenRouterChatOptions): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const baseUrl = process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL;
@@ -52,29 +69,47 @@ export async function openrouterChat(options: OpenRouterChatOptions): Promise<st
     throw new Error('OPENROUTER_API_KEY is not set');
   }
 
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': toSafeHeaderValue(referer, 'http://localhost:3000'),
-      'X-Title': title,
-    },
-    body: JSON.stringify({
-      model: options.model,
-      messages: options.messages,
-      temperature: options.temperature ?? 0.7,
-      max_tokens: options.max_tokens ?? 4096,
-    }),
+  const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const body = JSON.stringify({
+    model: options.model,
+    messages: options.messages,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.max_tokens ?? 4096,
   });
+  const baseHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  };
+  const optionalHeaders = {
+    'HTTP-Referer': toSafeHeaderValue(referer, 'http://localhost:3000'),
+    'X-Title': title,
+  };
 
-  if (!res.ok) {
+  const request = async (
+    headers: Record<string, string>
+  ): Promise<{ ok: boolean; status: number; text: string }> => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+    });
     const text = await res.text();
-    console.error('[OpenRouter] API error:', res.status, text);
-    throw new Error(`OpenRouter API error: ${res.status} ${text}`);
+    return { ok: res.ok, status: res.status, text };
+  };
+
+  let response = await request({ ...baseHeaders, ...optionalHeaders });
+
+  if (!response.ok && looksLikeHeaderIssue(response.text)) {
+    response = await request(baseHeaders);
   }
 
-  const data = (await res.json()) as OpenRouterChatResponse;
+  if (!response.ok) {
+    const parsedMessage = extractApiErrorMessage(response.text).slice(0, 500);
+    console.error('[OpenRouter] API error:', response.status, parsedMessage);
+    throw new Error(`OpenRouter API ${response.status}: ${parsedMessage}`);
+  }
+
+  const data = JSON.parse(response.text) as OpenRouterChatResponse;
   const content = normalizeContent(data.choices?.[0]?.message?.content);
   if (!content) {
     console.error('[OpenRouter] No content in response:', data);

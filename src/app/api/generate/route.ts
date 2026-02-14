@@ -188,6 +188,7 @@ export async function POST(request: NextRequest) {
   } = parsed.data;
 
   const modelConfig = getModelConfig(model_key);
+  let resolvedModelId = modelConfig.modelId;
 
   if (isInviteRequired(model_key)) {
     let inviteVerified = false;
@@ -300,14 +301,31 @@ export async function POST(request: NextRequest) {
     max_tokens: number;
   }): Promise<string> {
     if (modelConfig.provider === 'deepseek') {
+      resolvedModelId = modelConfig.modelId;
       return deepseekChat(options);
     }
-    return openrouterChat({
-      model: modelConfig.modelId,
-      messages: options.messages,
-      temperature: options.temperature,
-      max_tokens: options.max_tokens,
-    });
+    const modelCandidates = [modelConfig.modelId, ...(modelConfig.fallbackModelIds || [])];
+    let lastError: unknown;
+
+    for (const modelId of modelCandidates) {
+      try {
+        const result = await openrouterChat({
+          model: modelId,
+          messages: options.messages,
+          temperature: options.temperature,
+          max_tokens: options.max_tokens,
+        });
+        resolvedModelId = modelId;
+        return result;
+      } catch (error) {
+        lastError = error;
+        console.error('[Generate] OpenRouter candidate failed:', model_key, modelId, error);
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('OpenRouter request failed after trying fallback models');
   }
 
   let raw: string;
@@ -321,8 +339,16 @@ export async function POST(request: NextRequest) {
       max_tokens: 4096,
     });
   } catch (e) {
-    console.error('[Generate] model error:', model_key, modelConfig.modelId, e);
-    return apiError('AI_ERROR', '生成失败，请稍后重试');
+    const msg = e instanceof Error ? e.message : '模型调用失败';
+    console.error('[Generate] model error:', model_key, modelConfig.modelId, msg);
+    if (msg.includes('OPENROUTER_API_KEY is not set')) {
+      return apiError('CONFIG_ERROR', 'OpenRouter API Key 未配置，请先在环境变量中设置');
+    }
+    if (msg.includes('OpenRouter API')) {
+      const concise = msg.replace(/^OpenRouter API\s*/i, '').slice(0, 220);
+      return apiError('AI_ERROR', `OpenRouter 调用失败：${concise}`);
+    }
+    return apiError('AI_ERROR', `模型调用失败：${msg}`);
   }
 
   let title = '';
@@ -400,7 +426,7 @@ export async function POST(request: NextRequest) {
     .insert({
       ...baseInsertPayload,
       model_key,
-      model_id: modelConfig.modelId,
+      model_id: resolvedModelId,
     })
     .select('id, model_key, model_id, title, article, article_char_count, target_length, created_at')
     .single();
@@ -435,7 +461,7 @@ export async function POST(request: NextRequest) {
       ? {
           ...fallback.data,
           model_key,
-          model_id: modelConfig.modelId,
+          model_id: resolvedModelId,
         }
       : null;
     insertError = fallback.error;
@@ -454,7 +480,7 @@ export async function POST(request: NextRequest) {
   return apiSuccess({
     id: gen?.id,
     model_key: gen?.model_key ?? model_key,
-    model_id: gen?.model_id ?? modelConfig.modelId,
+    model_id: gen?.model_id ?? resolvedModelId,
     title: gen?.title,
     article: gen?.article,
     article_char_count: gen?.article_char_count,
