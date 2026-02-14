@@ -206,7 +206,7 @@
 - `DEEPSEEK_MODEL`（可选，默认 `deepseek-chat`）
 - `OPENROUTER_API_KEY`
 - `OPENROUTER_BASE_URL`（可选，默认 `https://openrouter.ai/api/v1`）
-- `OPENROUTER_APP_NAME`（可选，默认 `文脉 AI`）
+- `OPENROUTER_APP_NAME`（可选，默认 `Wenmai AI`，建议使用 ASCII 字符）
 - `MODEL_INVITE_CODE`（可选，默认 `ocean11`）
 
 ---

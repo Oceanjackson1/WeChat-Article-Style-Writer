@@ -1,6 +1,7 @@
 import type { DeepSeekMessage } from '@/lib/deepseek';
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_APP_NAME = 'Wenmai AI';
 
 export interface OpenRouterChatOptions {
   model: string;
@@ -34,11 +35,18 @@ function normalizeContent(content: OpenRouterMessageContent | undefined): string
     .trim();
 }
 
+function toSafeHeaderValue(input: string | undefined, fallback: string): string {
+  const normalized = String(input || '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .trim();
+  return normalized || fallback;
+}
+
 export async function openrouterChat(options: OpenRouterChatOptions): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const baseUrl = process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL;
   const referer = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const title = process.env.OPENROUTER_APP_NAME || '文脉 AI';
+  const title = toSafeHeaderValue(process.env.OPENROUTER_APP_NAME, DEFAULT_APP_NAME);
 
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not set');
@@ -49,7 +57,7 @@ export async function openrouterChat(options: OpenRouterChatOptions): Promise<st
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': referer,
+      'HTTP-Referer': toSafeHeaderValue(referer, 'http://localhost:3000'),
       'X-Title': title,
     },
     body: JSON.stringify({
