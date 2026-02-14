@@ -64,14 +64,16 @@ function resolveOpenRouterApiKey(): {
   source: string | null;
   presence: Record<string, boolean>;
 } {
-  const candidates: Array<{ name: string; value: string | undefined }> = [
-    { name: 'OPENROUTER_API_KEY', value: process.env.OPENROUTER_API_KEY },
-    { name: 'OPEN_ROUTER_API_KEY', value: process.env.OPEN_ROUTER_API_KEY },
-    { name: 'OPENROUTER_API', value: process.env.OPENROUTER_API },
-    { name: 'OPEN_ROUTER_API', value: process.env.OPEN_ROUTER_API },
-    { name: 'Open_Router_API', value: process.env['Open_Router_API'] },
-    { name: 'NEXT_PUBLIC_OPENROUTER_API_KEY', value: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY },
-  ];
+  const env = process.env as Record<string, string | undefined>;
+  const candidateNames = [
+    'OPENROUTER_API_KEY',
+    'OPEN_ROUTER_API_KEY',
+    'OPENROUTER_API',
+    'OPEN_ROUTER_API',
+    'Open_Router_API',
+    'NEXT_PUBLIC_OPENROUTER_API_KEY',
+  ] as const;
+  const candidates = candidateNames.map((name) => ({ name, value: env[name] }));
   const presence = Object.fromEntries(
     candidates.map((candidate) => [candidate.name, Boolean(String(candidate.value || '').trim())])
   ) as Record<string, boolean>;
