@@ -9,6 +9,8 @@ import HistoryCard from '@/components/dashboard/HistoryCard';
 
 export type GenerationResult = {
   id: string;
+  model_key?: string;
+  model_id?: string;
   title: string;
   article: string;
   article_char_count: number;

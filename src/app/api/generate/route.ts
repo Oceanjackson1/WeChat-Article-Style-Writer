@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server';
 import { apiError, apiSuccess, apiUnauthorized } from '@/lib/api-response';
 import { buildStyleProfile } from '@/lib/build-style-profile';
 import { deepseekChat } from '@/lib/deepseek';
+import { openrouterChat } from '@/lib/openrouter';
+import { getModelConfig, isInviteRequired } from '@/lib/model-config';
+import { getUserInviteVerified } from '@/lib/model-access';
 import { generateBodySchema } from '@/lib/zod-schemas';
 import { NextRequest } from 'next/server';
 
@@ -173,6 +176,7 @@ export async function POST(request: NextRequest) {
   }
 
   const {
+    model_key,
     target_length,
     content_outline,
     key_points,
@@ -182,6 +186,22 @@ export async function POST(request: NextRequest) {
     reference_sources,
     include_subheadings,
   } = parsed.data;
+
+  const modelConfig = getModelConfig(model_key);
+
+  if (isInviteRequired(model_key)) {
+    let inviteVerified = false;
+    try {
+      inviteVerified = await getUserInviteVerified(supabase, user.id);
+    } catch (error) {
+      console.error('[Generate] get invite status error:', error);
+      return apiError('DB_ERROR', '获取邀请码状态失败');
+    }
+
+    if (!inviteVerified) {
+      return apiError('INVITE_REQUIRED', '该模型需要先输入邀请码');
+    }
+  }
 
   const parsedReferences = parseReferenceSources(reference_sources);
   if (parsedReferences.invalid.length > 0) {
@@ -274,9 +294,25 @@ export async function POST(request: NextRequest) {
 
 请直接输出 JSON：{"title":"...","article":"..."}`;
 
+  async function chatWithSelectedModel(options: {
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    temperature: number;
+    max_tokens: number;
+  }): Promise<string> {
+    if (modelConfig.provider === 'deepseek') {
+      return deepseekChat(options);
+    }
+    return openrouterChat({
+      model: modelConfig.modelId,
+      messages: options.messages,
+      temperature: options.temperature,
+      max_tokens: options.max_tokens,
+    });
+  }
+
   let raw: string;
   try {
-    raw = await deepseekChat({
+    raw = await chatWithSelectedModel({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -285,7 +321,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 4096,
     });
   } catch (e) {
-    console.error('[Generate] DeepSeek error:', e);
+    console.error('[Generate] model error:', model_key, modelConfig.modelId, e);
     return apiError('AI_ERROR', '生成失败，请稍后重试');
   }
 
@@ -328,7 +364,7 @@ export async function POST(request: NextRequest) {
     const adjustPrompt = `当前正文字符数约为 ${articleCharCount}，目标为 ${target_length}。请对下面正文进行${action}，使字数尽量接近 ${target_length}（允许 ±10%），保持风格与事实不变。输出格式不变：仅输出 JSON {"title":"${title.replace(/"/g, '\\"')}","article":"..."}，正文用 \\n 换行。${adjustRules}\n\n当前正文：\n${article.slice(0, 12000)}`;
 
     try {
-      const adjustRaw = await deepseekChat({
+      const adjustRaw = await chatWithSelectedModel({
         messages: [
           { role: 'system', content: '只输出 JSON {"title":"...","article":"..."}，不要其他内容。' },
           { role: 'user', content: adjustPrompt },
@@ -349,19 +385,61 @@ export async function POST(request: NextRequest) {
     retries++;
   }
 
-  const { data: gen, error: insertError } = await supabase
+  const baseInsertPayload = {
+    user_id: user.id,
+    target_length,
+    content_outline,
+    key_points,
+    title,
+    article,
+    article_char_count: articleCharCount,
+  };
+
+  const primaryInsert = await supabase
     .from('generations')
     .insert({
-      user_id: user.id,
-      target_length,
-      content_outline,
-      key_points,
-      title,
-      article,
-      article_char_count: articleCharCount,
+      ...baseInsertPayload,
+      model_key,
+      model_id: modelConfig.modelId,
     })
-    .select('id, title, article, article_char_count, target_length, created_at')
+    .select('id, model_key, model_id, title, article, article_char_count, target_length, created_at')
     .single();
+
+  let gen = primaryInsert.data as
+    | {
+        id?: string;
+        model_key?: string;
+        model_id?: string;
+        title?: string;
+        article?: string;
+        article_char_count?: number;
+        target_length?: number;
+        created_at?: string;
+      }
+    | null;
+  let insertError = primaryInsert.error;
+
+  const shouldFallbackLegacyInsert =
+    !!insertError &&
+    (insertError.code === '42703' ||
+      insertError.message.includes('model_key') ||
+      insertError.message.includes('model_id'));
+
+  if (shouldFallbackLegacyInsert) {
+    const fallback = await supabase
+      .from('generations')
+      .insert(baseInsertPayload)
+      .select('id, title, article, article_char_count, target_length, created_at')
+      .single();
+    gen = fallback.data
+      ? {
+          ...fallback.data,
+          model_key,
+          model_id: modelConfig.modelId,
+        }
+      : null;
+    insertError = fallback.error;
+  }
 
   if (insertError) {
     console.error('[Generate] insert error:', insertError);
@@ -375,6 +453,8 @@ export async function POST(request: NextRequest) {
 
   return apiSuccess({
     id: gen?.id,
+    model_key: gen?.model_key ?? model_key,
+    model_id: gen?.model_id ?? modelConfig.modelId,
     title: gen?.title,
     article: gen?.article,
     article_char_count: gen?.article_char_count,

@@ -55,7 +55,7 @@
 - 鉴权：Supabase Auth（Google OAuth）
 - 数据库：Supabase Postgres
 - 文件存储：Supabase Storage（bucket：`user-articles`，私有）
-- AI：DeepSeek API（仅服务端调用）
+- AI：DeepSeek 原生 API + OpenRouter API（仅服务端调用）
 - 校验：Zod（请求参数与业务输入校验）
 
 ## 2.2 产品运行模式（端到端）
@@ -64,7 +64,7 @@
 3. 服务端解析文本并存储（DB + Storage）
 4. 触发风格画像构建（style profile）
 5. 用户输入提纲/核心观点及可选约束
-6. 服务端调用 DeepSeek 按风格生成标题和正文
+6. 服务端按所选模型生成标题和正文（DeepSeek 走原生 API，其它模型走 OpenRouter）
 7. 结果写入生成历史并回显在工作台
 8. 用户可复制、回看、删除历史记录
 
@@ -73,6 +73,8 @@
 - 上传历史文章（PDF/TXT/DOCX，单文件 ≤ 10MB）
 - 风格画像自动生成与查看
 - 文章生成（支持 1500/2500/3500 与 1~10000 自定义）
+- 模型选择（DeepSeek / Grok / GPT 5.2 / Gemini / Opus 4.6）
+- 邀请码解锁（除 DeepSeek 外其余模型首次使用需验证邀请码）
 - 进阶生成参数（约束性条件、作者画像、具体案例、参考来源、小标题）
 - 输出复制、字数偏差展示
 - 最近生成记录查看与删除
@@ -117,6 +119,8 @@
 - 核心能力：
   - 必填：提纲 + 核心观点
   - 字数控制：预设 + 自定义（1~10000）
+  - 模型切换：DeepSeek（免邀请码）/ Grok / GPT 5.2 / Gemini / Opus 4.6
+  - 邀请码弹窗验证：非 DeepSeek 模型首次使用需要验证
   - 进阶参数：约束性条件、作者画像、具体案例、参考来源、小标题开关
   - 参考链接抓取与摘要拼接
   - 按风格画像提示词生成标题和正文
@@ -175,6 +179,7 @@
 
 迁移文件：
 - `supabase/migrations/000_init.sql`
+- `supabase/migrations/001_model_access_and_generation_models.sql`
 
 存储策略说明：
 - `supabase/storage_policies.md`
@@ -191,6 +196,10 @@
 - `DEEPSEEK_API_KEY`
 - `DEEPSEEK_BASE_URL`（可选，默认 `https://api.deepseek.com`）
 - `DEEPSEEK_MODEL`（可选，默认 `deepseek-chat`）
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_BASE_URL`（可选，默认 `https://openrouter.ai/api/v1`）
+- `OPENROUTER_APP_NAME`（可选，默认 `文脉 AI`）
+- `MODEL_INVITE_CODE`（可选，默认 `ocean11`）
 
 ---
 
@@ -217,7 +226,7 @@ npm run dev -- -p 3010
 
 - 生产环境配置正确的 `NEXT_PUBLIC_SITE_URL`
 - Supabase Auth 的 Redirect URLs 需覆盖生产域名
-- DeepSeek Key 仅放服务端环境变量，不暴露到浏览器
+- DeepSeek / OpenRouter Key 仅放服务端环境变量，不暴露到浏览器
 - 首次部署前确认 DB migration 与 Storage policy 已应用
 
 ---

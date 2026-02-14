@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MODEL_KEYS } from '@/lib/model-config';
 
 export const targetLengthSchema = z
   .number()
@@ -8,6 +9,7 @@ export const targetLengthSchema = z
 export type TargetLength = z.infer<typeof targetLengthSchema>;
 
 export const generateBodySchema = z.object({
+  model_key: z.enum(MODEL_KEYS).default('deepseek'),
   target_length: targetLengthSchema,
   content_outline: z.string().min(1, '请填写文章提纲').max(10000),
   key_points: z.string().min(1, '请填写核心观点').max(5000),
