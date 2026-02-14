@@ -43,8 +43,9 @@ export function useLandingAuth(nextPath = '/') {
     if (authLoading) return;
     setAuthLoading(true);
     const supabase = createClient();
-    const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-    const siteUrl = runtimeOrigin || process.env.NEXT_PUBLIC_SITE_URL || '';
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : '');
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
