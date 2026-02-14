@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 import type { GenerationResult } from '@/app/dashboard/page';
+import { MODEL_OPTIONS_FOR_UI } from '@/lib/model-config';
 import ConfirmModal from './ConfirmModal';
+
+const MODEL_LABEL_MAP = new Map(MODEL_OPTIONS_FOR_UI.map((item) => [item.key, item.label]));
+
+function getModelLabel(modelKey?: string): string {
+  if (!modelKey) return 'DeepSeek';
+  return MODEL_LABEL_MAP.get(modelKey as (typeof MODEL_OPTIONS_FOR_UI)[number]['key']) ?? modelKey;
+}
 
 export default function HistoryCard({
   generations,
@@ -75,9 +83,14 @@ export default function HistoryCard({
                   className="w-full text-left px-4 py-3"
                 >
                   <span className="font-medium text-neutral-900 block truncate">{g.title || '无标题'}</span>
-                  <span className="text-sm text-neutral-500">
-                    {g.article_char_count} 字 · {new Date(g.created_at).toLocaleString('zh-CN')}
-                  </span>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-sm text-neutral-500">
+                      {g.article_char_count} 字 · {new Date(g.created_at).toLocaleString('zh-CN')}
+                    </span>
+                    <span className="shrink-0 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-600">
+                      {getModelLabel(g.model_key)}
+                    </span>
+                  </div>
                 </button>
 
                 {/* 删除按钮区 */}
