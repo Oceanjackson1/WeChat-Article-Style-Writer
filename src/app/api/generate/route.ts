@@ -329,9 +329,11 @@ export async function POST(request: NextRequest) {
     const msg = e instanceof Error ? e.message : '模型调用失败';
     console.error('[Generate] model error:', model_key, modelConfig.modelId, msg);
     if (msg.includes('OPENROUTER_API_KEY is not set')) {
+      const deploySha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'unknown';
+      const deployUrl = process.env.VERCEL_URL || 'unknown';
       return apiError(
         'CONFIG_ERROR',
-        'OpenRouter API Key 未生效。请确认变量名为 OPENROUTER_API_KEY，并在 Vercel 更新后重新部署。'
+        `OpenRouter API Key 未生效。请确认变量名为 OPENROUTER_API_KEY，并在 Vercel 更新后重新部署。当前部署: ${deploySha} @ ${deployUrl}。${msg}`
       );
     }
     if (msg.includes('OpenRouter API')) {

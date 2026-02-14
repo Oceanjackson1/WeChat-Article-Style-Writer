@@ -59,32 +59,44 @@ function looksLikeHeaderIssue(message: string): boolean {
   return /header|referer|x-title|bytestring|invalid character|invalid header/i.test(message);
 }
 
-function resolveOpenRouterApiKey(): { apiKey: string | null; source: string | null } {
+function resolveOpenRouterApiKey(): {
+  apiKey: string | null;
+  source: string | null;
+  presence: Record<string, boolean>;
+} {
   const candidates: Array<{ name: string; value: string | undefined }> = [
     { name: 'OPENROUTER_API_KEY', value: process.env.OPENROUTER_API_KEY },
+    { name: 'OPEN_ROUTER_API_KEY', value: process.env.OPEN_ROUTER_API_KEY },
+    { name: 'OPENROUTER_API', value: process.env.OPENROUTER_API },
     { name: 'OPEN_ROUTER_API', value: process.env.OPEN_ROUTER_API },
     { name: 'Open_Router_API', value: process.env['Open_Router_API'] },
+    { name: 'NEXT_PUBLIC_OPENROUTER_API_KEY', value: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY },
   ];
+  const presence = Object.fromEntries(
+    candidates.map((candidate) => [candidate.name, Boolean(String(candidate.value || '').trim())])
+  ) as Record<string, boolean>;
 
   for (const candidate of candidates) {
     const normalized = String(candidate.value || '').trim();
     if (normalized) {
-      return { apiKey: normalized, source: candidate.name };
+      return { apiKey: normalized, source: candidate.name, presence };
     }
   }
 
-  return { apiKey: null, source: null };
+  return { apiKey: null, source: null, presence };
 }
 
 export async function openrouterChat(options: OpenRouterChatOptions): Promise<string> {
-  const { apiKey, source } = resolveOpenRouterApiKey();
+  const { apiKey, source, presence } = resolveOpenRouterApiKey();
   const baseUrl = process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL;
   const referer = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const title = toSafeHeaderValue(process.env.OPENROUTER_APP_NAME, DEFAULT_APP_NAME);
 
   if (!apiKey) {
     throw new Error(
-      'OPENROUTER_API_KEY is not set (checked: OPENROUTER_API_KEY, OPEN_ROUTER_API, Open_Router_API)'
+      `OPENROUTER_API_KEY is not set (${Object.entries(presence)
+        .map(([name, exists]) => `${name}=${exists ? '1' : '0'}`)
+        .join(', ')})`
     );
   }
 
